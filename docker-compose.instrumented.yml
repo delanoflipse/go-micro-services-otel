@@ -13,13 +13,22 @@ services:
       - search
       - profile
 
-  search:
-    build: ./
+  search-service:
+    build: .
     entrypoint: go-micro-services search
     links:
       - geo
       - rate
       - jaeger
+
+  search:
+    image: envoyproxy/envoy-alpine:v1.21-latest
+    depends_on:
+      - search-service
+    volumes:
+      - ./internal/services/search/envoy.yaml:/etc/envoy/envoy.yaml
+    ports:
+      - "9901:9901"
 
   profile:
     build: .
@@ -29,6 +38,7 @@ services:
       - rate
       - jaeger
 
+      - 
   geo:
     build: .
     entrypoint: go-micro-services geo
