@@ -8,16 +8,16 @@ import (
 	profile "github.com/harlow/go-micro-services/internal/services/profile/proto"
 	search "github.com/harlow/go-micro-services/internal/services/search/proto"
 	"github.com/harlow/go-micro-services/internal/trace"
-	opentracing "github.com/opentracing/opentracing-go"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"google.golang.org/grpc"
 )
 
 // New returns a new server
-func New(t opentracing.Tracer, searchconn, profileconn *grpc.ClientConn) *Frontend {
+func New(tp *sdktrace.TracerProvider, searchconn, profileconn *grpc.ClientConn) *Frontend {
 	return &Frontend{
 		searchClient:  search.NewSearchClient(searchconn),
 		profileClient: profile.NewProfileClient(profileconn),
-		tracer:        t,
+		tracer:        tp,
 	}
 }
 
@@ -25,7 +25,7 @@ func New(t opentracing.Tracer, searchconn, profileconn *grpc.ClientConn) *Fronte
 type Frontend struct {
 	searchClient  search.SearchClient
 	profileClient profile.ProfileClient
-	tracer        opentracing.Tracer
+	tracer        *sdktrace.TracerProvider
 }
 
 // Run the server

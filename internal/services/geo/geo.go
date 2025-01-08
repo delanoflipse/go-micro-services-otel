@@ -6,11 +6,11 @@ import (
 	"log"
 	"net"
 
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	"github.com/hailocab/go-geoindex"
 	"github.com/harlow/go-micro-services/data"
 	geo "github.com/harlow/go-micro-services/internal/services/geo/proto"
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
@@ -33,9 +33,9 @@ func (p *point) Lon() float64 { return p.Plon }
 func (p *point) Id() string   { return p.Pid }
 
 // New returns a new server
-func New(tr opentracing.Tracer) *Geo {
+func New(tp *sdktrace.TracerProvider) *Geo {
 	return &Geo{
-		tracer: tr,
+		tracer: tp,
 		geoidx: newGeoIndex("data/geo.json"),
 	}
 }
@@ -43,15 +43,13 @@ func New(tr opentracing.Tracer) *Geo {
 // Server implements the geo service
 type Geo struct {
 	geoidx *geoindex.ClusteringIndex
-	tracer opentracing.Tracer
+	tracer *sdktrace.TracerProvider
 }
 
 // Run starts the server
 func (s *Geo) Run(port int) error {
 	srv := grpc.NewServer(
-		grpc.UnaryInterceptor(
-			otgrpc.OpenTracingServerInterceptor(s.tracer),
-		),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 	geo.RegisterGeoServer(srv, s)
 
