@@ -6,4 +6,8 @@ public interface InstrumentedService {
     public GenericContainer<?> getContainer();
 
     public String getName();
+
+    public void start();
+
+    public void stop();
 }

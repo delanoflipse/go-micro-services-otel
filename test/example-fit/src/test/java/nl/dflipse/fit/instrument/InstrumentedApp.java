@@ -15,7 +15,7 @@ public class InstrumentedApp {
         this.network = Network.newNetwork();
         this.services = new ArrayList<InstrumentedService>();
 
-        String collectorName = "instrumentation-collector";
+        String collectorName = "collector";
         this.collector = new CollectorService(collectorName, network);
         this.services.add(collector);
     }
@@ -29,9 +29,10 @@ public class InstrumentedApp {
         this.services.add(service);
     }
 
-    public void addInstrumentedService(String serviceName, GenericContainer<?> service, int port) {
+    public ProxyService addInstrumentedService(String serviceName, GenericContainer<?> service, int port) {
         ProxyService proxyService = new ProxyService(serviceName, service, port, this);
         this.services.add(proxyService);
+        return proxyService;
     }
 
     public InstrumentedService getServiceByName(String serviceName) {
@@ -56,11 +57,10 @@ public class InstrumentedApp {
 
     public void start() {
         for (InstrumentedService service : this.services) {
-            GenericContainer<?> container = service.getContainer();
             try {
-                container.start();
+                service.start();
             } catch (Exception e) {
-                System.err.println("Failed to start container: " + container.getDockerImageName());
+                System.err.println("Failed to start container: " + service.getName());
                 e.printStackTrace();
             }
         }
@@ -68,10 +68,7 @@ public class InstrumentedApp {
 
     public void stop() {
         for (InstrumentedService service : this.services) {
-            GenericContainer<?> container = service.getContainer();
-            if (container != null && container.isRunning()) {
-                container.stop();
-            }
+            service.stop();
         }
     }
 }

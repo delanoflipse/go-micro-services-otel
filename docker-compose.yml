@@ -3,8 +3,6 @@ services:
   frontend:
     build: .
     entrypoint: go-micro-services frontend
-    ports:
-      - "5000:8080"
     links:
       - otel-collector
       - search
@@ -12,6 +10,15 @@ services:
     depends_on:
       - search
       - profile
+
+  frontend-proxy:
+    build: ./services/proxy
+    environment:
+      - PROXY_HOST=0.0.0.0:8080
+      - PROXY_TARGET=http://frontend:8080
+    ports:
+      - "5000:8080"
+
   search:
     build: .
     entrypoint: go-micro-services search
@@ -28,10 +35,11 @@ services:
       - otel-collector
 
   geo:
-    image: mitmproxy/mitmproxy:11
-    volumes:
-      - ./services/proxy/proxy.py:/proxy.py
-    command: mitmdump -p 8080 -s /proxy.py --mode reverse:http://geo-service:8080 --set stream_large_bodies=1 --set http2=true
+    build: ./services/proxy
+    environment:
+      - PROXY_HOST=0.0.0.0:8080
+      - PROXY_TARGET=http://geo-service:8080
+      - USE_HTTP2=true
     ports:
       - "5011:8080"
 

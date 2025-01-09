@@ -8,16 +8,16 @@ import org.testcontainers.containers.Network;
 import org.testcontainers.images.builder.ImageFromDockerfile;
 
 public class CollectorService implements InstrumentedService {
-    public GenericContainer<?> service;
-    public String name;
+    private GenericContainer<?> container;
+    private String name;
 
     private static Path imagePath = new File("../..").toPath().resolve("services/collector");
-    public static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
+    private static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
 
     public CollectorService(String name, Network network) {
         this.name = name;
 
-        this.service = new GenericContainer<>(image)
+        this.container = new GenericContainer<>(image)
                 .withCommand("flask --app collector.py run --host=0.0.0.0")
                 .withExposedPorts(5000)
                 .withNetwork(network)
@@ -25,10 +25,20 @@ public class CollectorService implements InstrumentedService {
     }
 
     public GenericContainer<?> getContainer() {
-        return service;
+        return container;
     }
 
     public String getName() {
         return name;
+    }
+
+    public void start() {
+        container.start();
+    }
+
+    public void stop() {
+        if (container != null && container.isRunning()) {
+            container.stop();
+        }
     }
 }
