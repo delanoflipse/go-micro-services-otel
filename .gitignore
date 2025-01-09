@@ -7,3 +7,6 @@ cmd/rate/rate
 cmd/www/www
 cmd/search/search
 vendor/**
+
+__pycache__/
+*.pyc
