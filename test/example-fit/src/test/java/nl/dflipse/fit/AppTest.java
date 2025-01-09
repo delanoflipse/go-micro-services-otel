@@ -11,8 +11,10 @@ import nl.dflipse.fit.instrument.ProxyService;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
+import java.io.IOException;
 import java.nio.file.Path;
 
+import org.apache.hc.client5.http.fluent.Request;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 
@@ -84,8 +86,23 @@ public class AppTest {
     }
 
     @Test
-    public void testApp() {
-        String access = "http://localhost:" + app.getContainerByName("frontend").getMappedPort(8080);
-        assertTrue(true);
+    public void testApp() throws IOException {
+        int frontendPort = app.getContainerByName("frontend").getMappedPort(8080);
+        String queryUrl = "http://localhost:" + frontendPort + "/hotels?inDate=2015-04-09&outDate=2015-04-10";
+
+        String traceId = "afafafafafafafafafafafafafafafaf";
+        String spanId = "00f067aa0ba902b7";
+        String traceparentHeader = "00-" + traceId + "-" + spanId + "-01";
+
+        int faultOn = 2;
+        String tracestateHeader = "fi=" + faultOn;
+
+        Request.get(queryUrl)
+                .addHeader("traceparent", traceparentHeader)
+                .addHeader("tracestate", tracestateHeader)
+                .execute();
+
+        boolean allRunning = app.allRunning();
+        assertTrue(allRunning);
     }
 }

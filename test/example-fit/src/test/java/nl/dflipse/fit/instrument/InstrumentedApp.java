@@ -55,6 +55,16 @@ public class InstrumentedApp {
         return null;
     }
 
+    public boolean allRunning() {
+        for (InstrumentedService service : this.services) {
+            if (!service.getContainer().isRunning()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
     public void start() {
         for (InstrumentedService service : this.services) {
             try {
