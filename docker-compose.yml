@@ -26,11 +26,21 @@ services:
       - geo
       - rate
       - otel-collector
+
   geo:
+    image: mitmproxy/mitmproxy:11
+    volumes:
+      - ./services/proxy/proxy.py:/proxy.py
+    command: mitmdump -p 8080 -s /proxy.py --mode reverse:http://geo-service:8080 --set stream_large_bodies=1 --set http2=true
+    ports:
+      - "5011:8080"
+
+  geo-service:
     build: .
     entrypoint: go-micro-services geo
     links:
       - otel-collector
+
   rate:
     build: .
     entrypoint: go-micro-services rate
@@ -55,9 +65,9 @@ services:
       - collector
 
   collector:
-    build: ./collector
+    build: ./services/collector
     volumes:
-      - ./collector:/collector
+      - ./services/collector:/collector
     command: flask --app /collector/collector.py --debug run --host=0.0.0.0
     ports:
       - "5010:5000"
