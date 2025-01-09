@@ -4,22 +4,32 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 
 public class PlainService implements InstrumentedService {
-    public GenericContainer<?> service;
+    public GenericContainer<?> container;
     public String name;
 
-    public PlainService(String name, GenericContainer<?> service, Network network) {
+    public PlainService(String name, GenericContainer<?> container, Network network) {
         this.name = name;
-        this.service = service;
+        this.container = container;
 
-        service.withNetwork(network);
-        service.withNetworkAliases(name);
+        container.withNetwork(network);
+        container.withNetworkAliases(name);
     }
 
     public GenericContainer<?> getContainer() {
-        return service;
+        return container;
     }
 
     public String getName() {
         return name;
+    }
+
+    public void start() {
+        container.start();
+    }
+
+    public void stop() {
+        if (container != null && container.isRunning()) {
+            container.stop();
+        }
     }
 }

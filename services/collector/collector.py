@@ -1,3 +1,4 @@
+import base64
 from dataclasses import dataclass, field
 
 # import trace
@@ -39,10 +40,19 @@ def get_attribute(attributes, key):
     return None
 
 
+def to_id(base_id):
+    if base_id is None:
+        return None
+
+    as_int = int.from_bytes(base64.b64decode(base_id), 'big')
+    return hex(as_int)
+
+
 def handleScopeSpan(span: dict, service_name: str):
-    span_id = span.get('spanId', None)
-    trace_id = span.get('traceId', None)
-    parent_span_id = span.get('parentSpanId', None)
+    span_id = to_id(span.get('spanId', None))
+    trace_id = to_id(span.get('traceId', None))
+    parent_span_id = to_id(span.get('parentSpanId', None))
+
     name = span.get('name', None)
     start_time = span.get('startTimeUnixNano', None)
     end_time = span.get('endTimeUnixNano', None)

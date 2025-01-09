@@ -48,6 +48,8 @@ func main() {
 
 	var srv server
 
+	log.Printf("cmd: %s", cmd)
+
 	switch cmd {
 	case "geo":
 		srv = geosrv.New(tp)

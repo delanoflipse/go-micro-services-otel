@@ -5,30 +5,26 @@ import java.nio.file.Path;
 
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.images.builder.ImageFromDockerfile;
-import org.testcontainers.utility.MountableFile;
 
 public class ProxyService implements InstrumentedService {
     public GenericContainer<?> service;
     public GenericContainer<?> proxy;
-    public String name;
+    private String name;
     private String serviceHost;
 
     private static Path imagePath = new File("../..").toPath().resolve("services/proxy");
-    public static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
-    public static MountableFile proxyScript = MountableFile.forHostPath("../../services/proxy/proxy.py");
+    private static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
 
     public ProxyService(String name, GenericContainer<?> service, int port, InstrumentedApp app) {
         this.name = name;
         this.service = service;
 
         this.serviceHost = name + "-instrumented";
-        this.proxy = new GenericContainer<>("mitmproxy/mitmproxy:latest")
-                .withCopyFileToContainer(proxyScript, "/proxy.py")
-                .withEnv("SERVICE_NAME", name)
-                .withEnv("PROXY_TARGET", this.serviceHost)
+        this.proxy = new GenericContainer<>(image)
+                .dependsOn(service)
+                .withEnv("PROXY_HOST", "0.0.0.0:" + port)
+                .withEnv("PROXY_TARGET", "http://" + this.serviceHost + ":" + port)
                 .withEnv("COLLECTOR_HOST", app.collector.getContainer().getHost())
-                .withCommand(
-                        "mitmproxy -p " + port + " -s /proxy.py -mode reverse:https://" + this.serviceHost + ":" + port)
                 .withNetwork(app.network)
                 .withNetworkAliases(name);
 
@@ -36,11 +32,31 @@ public class ProxyService implements InstrumentedService {
         service.withNetworkAliases(this.serviceHost);
     }
 
+    public ProxyService withHttp2() {
+        proxy.withEnv("USE_HTTP2", "true");
+        return this;
+    }
+
     public GenericContainer<?> getContainer() {
-        return service;
+        return proxy;
     }
 
     public String getName() {
         return name;
+    }
+
+    public void start() {
+        service.start();
+        proxy.start();
+    }
+
+    public void stop() {
+        if (proxy != null && proxy.isRunning()) {
+            proxy.stop();
+        }
+
+        if (service != null && service.isRunning()) {
+            service.stop();
+        }
     }
 }
