@@ -37,6 +37,10 @@ public class ProxyService implements InstrumentedService {
         return this;
     }
 
+    public boolean isRunning() {
+        return service.isRunning();
+    }
+
     public GenericContainer<?> getContainer() {
         return proxy;
     }

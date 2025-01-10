@@ -7,6 +7,8 @@ public interface InstrumentedService {
 
     public String getName();
 
+    public boolean isRunning();
+
     public void start();
 
     public void stop();

@@ -11,23 +11,7 @@ services:
       - search
       - profile
 
-  frontend-proxy:
-    build: ./services/proxy
-    environment:
-      - PROXY_HOST=0.0.0.0:8080
-      - PROXY_TARGET=http://frontend:8080
-      - COLLECTOR_HOST=collector:5000
-    ports:
-      - "5000:8080"
-
   search:
-    build: ./services/proxy
-    environment:
-      - PROXY_HOST=0.0.0.0:8080
-      - PROXY_TARGET=http://search-service:8080
-      - COLLECTOR_HOST=collector:5000
-      - USE_HTTP2=true
-  search-service:
     build: .
     entrypoint: go-micro-services search
     links:
@@ -35,44 +19,18 @@ services:
       - rate
       - otel-collector
   profile:
-    build: ./services/proxy
-    environment:
-      - PROXY_HOST=0.0.0.0:8080
-      - PROXY_TARGET=http://profile-service:8080
-      - COLLECTOR_HOST=collector:5000
-      - USE_HTTP2=true
-  profile-service:
     build: .
     entrypoint: go-micro-services profile
     links:
       - geo
       - rate
       - otel-collector
-
   geo:
-    build: ./services/proxy
-    environment:
-      - PROXY_HOST=0.0.0.0:8080
-      - PROXY_TARGET=http://geo-service:8080
-      - COLLECTOR_HOST=collector:5000
-      - USE_HTTP2=true
-    ports:
-      - "5011:8080"
-
-  geo-service:
     build: .
     entrypoint: go-micro-services geo
     links:
       - otel-collector
-
   rate:
-    build: ./services/proxy
-    environment:
-      - PROXY_HOST=0.0.0.0:8080
-      - PROXY_TARGET=http://rate-service:8080
-      - COLLECTOR_HOST=collector:5000
-      - USE_HTTP2=true
-  rate-service:
     build: .
     entrypoint: go-micro-services rate
     links:

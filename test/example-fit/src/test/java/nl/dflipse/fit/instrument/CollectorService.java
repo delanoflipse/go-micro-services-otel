@@ -32,6 +32,10 @@ public class CollectorService implements InstrumentedService {
         return name;
     }
 
+    public boolean isRunning() {
+        return container.isRunning();
+    }
+
     public void start() {
         container.start();
     }
