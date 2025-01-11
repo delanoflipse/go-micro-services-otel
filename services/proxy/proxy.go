@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -14,6 +15,26 @@ import (
 	"golang.org/x/net/http2"
 	"golang.org/x/net/http2/h2c"
 )
+
+func getSpanUID(traceparent tracing.TraceParentData) string {
+	queryHost := os.Getenv("COLLECTOR_HOST")
+	queryUrl := fmt.Sprintf("http://%s/v1/spanid/%s", queryHost, traceparent.String())
+	resp, err := http.Get(queryUrl)
+
+	if err != nil {
+		log.Printf("Failed to get span ID: %v\n", err)
+		return ""
+	}
+	defer resp.Body.Close()
+
+	spanID, err := io.ReadAll(resp.Body)
+	if err != nil {
+		log.Printf("Failed to read span ID response: %v\n", err)
+		return ""
+	}
+
+	return string(spanID)
+}
 
 // Proxy handler that inspects and forwards HTTP requests and responses
 func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
@@ -53,16 +74,15 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 		state := tracing.ParseTraceState(tracestate)
 
 		fmt.Printf("Traceparent: %+v\n", parent)
-		fmt.Printf("Tracedata: %+v\n", state)
+		fmt.Printf("Tracestate: %+v\n", state)
 
-		fid := state.GetIntWithDefault("fid", 0)
-		fid++
-		state.SetInt("fid", fid)
+		spanUID := getSpanUID(*parent)
+		log.Printf("Span UID: %s\n", spanUID)
 
-		fi := state.GetIntWithDefault("fi", -1)
-		log.Printf("Fault injection: %d/%d\n", fid, fi)
+		faultload := state.GetWithDefault("faultload", "")
+		log.Printf("Fault injection: %s\n", faultload)
 
-		if fi >= 0 && fi == fid {
+		if faultload != "" && faultload == spanUID {
 			http.Error(w, "Injected fault: HTTP error", http.StatusInternalServerError)
 			return
 		}
@@ -73,7 +93,9 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 		// }
 
 		// Set the "tracestate" header before forwarding the request
-		r.Header.Set("tracestate", state.String())
+		if state.HasKeys() {
+			r.Header.Set("tracestate", state.String())
+		}
 
 		// Forward the request to the target server
 		proxy.ServeHTTP(w, r)

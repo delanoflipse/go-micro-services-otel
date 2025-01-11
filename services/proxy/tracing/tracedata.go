@@ -32,6 +32,10 @@ func (t TraceStateData) Set(key, value string) {
 	t[key] = value
 }
 
+func (t TraceStateData) HasKeys() bool {
+	return len(t) > 0
+}
+
 func (t TraceStateData) SetInt(key string, value int) {
 	t.Set(key, strconv.Itoa(value))
 }
@@ -70,11 +74,12 @@ func (t *TraceStateData) GetIntWithDefault(key string, def int) int {
 }
 
 func ParseTraceState(tracestate string) *TraceStateData {
+	entries := make(TraceStateData)
+
 	if tracestate == "" {
-		return nil
+		return &entries
 	}
 
-	entries := make(TraceStateData)
 	pairs := strings.Split(tracestate, ",")
 	for _, pair := range pairs {
 		kv := strings.SplitN(pair, "=", 2)

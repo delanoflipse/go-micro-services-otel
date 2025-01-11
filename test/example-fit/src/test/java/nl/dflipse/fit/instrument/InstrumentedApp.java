@@ -1,22 +1,32 @@
 package nl.dflipse.fit.instrument;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import org.apache.hc.client5.http.fluent.Request;
+import org.apache.hc.client5.http.fluent.Response;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import nl.dflipse.fit.collector.TraceData;
 
 public class InstrumentedApp {
     public Network network;
     private List<InstrumentedService> services;
+    public String collectorHost = "collector";
+    public int collectorPort = 5000;
     public CollectorService collector;
+    public String collectorInspectUrl;
 
     public InstrumentedApp() {
         this.network = Network.newNetwork();
         this.services = new ArrayList<InstrumentedService>();
 
-        String collectorName = "collector";
-        this.collector = new CollectorService(collectorName, network);
+        this.collector = new CollectorService(collectorHost, network);
+
         this.services.add(collector);
     }
 
@@ -55,6 +65,29 @@ public class InstrumentedApp {
         return null;
     }
 
+    public boolean allRunning() {
+        for (InstrumentedService service : this.services) {
+            if (!service.isRunning()) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    public TraceData getTrace(String traceId) {
+        String queryUrl = collectorInspectUrl + "/v1/get/" + traceId;
+        try {
+            Response res = Request.get(queryUrl).execute();
+            String body = res.returnContent().asString();
+            TraceData collectorResponse = new ObjectMapper().readValue(body, TraceData.class);
+            return collectorResponse;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
     public void start() {
         for (InstrumentedService service : this.services) {
             try {
@@ -64,6 +97,9 @@ public class InstrumentedApp {
                 e.printStackTrace();
             }
         }
+
+        int collectorPort = collector.getContainer().getMappedPort(5000);
+        collectorInspectUrl = "http://localhost:" + collectorPort;
     }
 
     public void stop() {
