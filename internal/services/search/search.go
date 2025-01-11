@@ -51,8 +51,11 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 		Lat: req.Lat,
 		Lon: req.Lon,
 	})
+
 	if err != nil {
-		log.Fatalf("nearby error: %v", err)
+		// TODO: restore original line
+		// log.Fatalf("nearby error: %v", err)
+		return nil, fmt.Errorf("nearby error: %v", err)
 	}
 
 	// find rates for hotels
@@ -61,8 +64,11 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 		InDate:   req.InDate,
 		OutDate:  req.OutDate,
 	})
+
 	if err != nil {
-		log.Fatalf("rates error: %v", err)
+		// TODO: restore original line
+		// log.Fatalf("rates error: %v", err)
+		return nil, fmt.Errorf("rates error: %v", err)
 	}
 
 	// build the response

@@ -1,10 +1,6 @@
 package nl.dflipse.fit.instrument;
 
-import java.io.File;
-import java.nio.file.Path;
-
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 
 public class ProxyService implements InstrumentedService {
     public GenericContainer<?> service;
@@ -12,8 +8,7 @@ public class ProxyService implements InstrumentedService {
     private String name;
     private String serviceHost;
 
-    private static Path imagePath = new File("../..").toPath().resolve("services/proxy");
-    private static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
+    private static String image = "fit-proxy:latest";
 
     public ProxyService(String name, GenericContainer<?> service, int port, InstrumentedApp app) {
         this.name = name;
@@ -24,7 +19,7 @@ public class ProxyService implements InstrumentedService {
                 .dependsOn(service)
                 .withEnv("PROXY_HOST", "0.0.0.0:" + port)
                 .withEnv("PROXY_TARGET", "http://" + this.serviceHost + ":" + port)
-                .withEnv("COLLECTOR_HOST", app.collector.getContainer().getHost())
+                .withEnv("COLLECTOR_HOST", app.collectorHost + ":" + app.collectorPort)
                 .withNetwork(app.network)
                 .withNetworkAliases(name);
 

@@ -1,24 +1,18 @@
 package nl.dflipse.fit;
 
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 import org.testcontainers.utility.MountableFile;
 
 import nl.dflipse.fit.collector.TraceData;
 import nl.dflipse.fit.instrument.InstrumentedApp;
 import nl.dflipse.fit.strategy.Faultload;
 import nl.dflipse.fit.strategy.FiTest;
-import nl.dflipse.fit.trace.TraceParent;
-import nl.dflipse.fit.trace.TraceState;
+import nl.dflipse.fit.strategy.InstrumentedTest;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import java.io.File;
 import java.io.IOException;
-import java.nio.file.Path;
 
 import org.apache.hc.client5.http.fluent.Response;
 import org.apache.hc.client5.http.fluent.Request;
@@ -28,7 +22,7 @@ import org.junit.jupiter.api.BeforeAll;
 /**
  * FI test the app
  */
-public class AppTest {
+public class AppTest implements InstrumentedTest {
 
     static private InstrumentedApp app;
 
@@ -38,8 +32,7 @@ public class AppTest {
         app = new InstrumentedApp();
 
         // Add services
-        Path rootPath = new File("../..").toPath();
-        ImageFromDockerfile baseImage = new ImageFromDockerfile().withFileFromPath(".", rootPath);
+        String baseImage = "go-micro-service:latest";
 
         GenericContainer<?> geo = new GenericContainer<>(baseImage)
                 .withCommand("go-micro-services geo");
@@ -92,6 +85,11 @@ public class AppTest {
         app.stop();
     }
 
+    @Override
+    public InstrumentedApp getApp() {
+        return app;
+    }
+
     @FiTest
     public void testApp(Faultload faultload) throws IOException {
         int frontendPort = app.getContainerByName("frontend").getMappedPort(8080);
@@ -102,9 +100,8 @@ public class AppTest {
                 .addHeader("tracestate", faultload.getTraceState().toString())
                 .execute();
 
-        TraceData trace = app.getTrace(faultload.getTraceId());
-        assertEquals(1, trace.trees.size());
-
+        String inspectUrl = app.collectorInspectUrl + "/v1/get/"
+                + faultload.getTraceId();
         int expectedResponse = faultload.size() > 0 ? 500 : 200;
         assertEquals(expectedResponse, res.returnResponse().getCode());
 

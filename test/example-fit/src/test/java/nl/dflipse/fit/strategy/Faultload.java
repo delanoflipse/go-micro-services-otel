@@ -23,8 +23,13 @@ public class Faultload {
     }
 
     private void initializeTraceState() {
-        traceState.set("faultload", "");
-        traceState.set("spanuid", 0);
+        if (faultload.isEmpty()) {
+            return;
+        }
+
+        // TODO: allow for multiple faults
+        var fault = faultload.get(0);
+        traceState.set("faultload", fault);
     }
 
     public String getTraceId() {

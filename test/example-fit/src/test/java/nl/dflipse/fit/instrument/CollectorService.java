@@ -1,18 +1,13 @@
 package nl.dflipse.fit.instrument;
 
-import java.io.File;
-import java.nio.file.Path;
-
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
-import org.testcontainers.images.builder.ImageFromDockerfile;
 
 public class CollectorService implements InstrumentedService {
     private GenericContainer<?> container;
     private String name;
 
-    private static Path imagePath = new File("../..").toPath().resolve("services/collector");
-    private static ImageFromDockerfile image = new ImageFromDockerfile().withFileFromPath(".", imagePath);
+    private static String image = "fit-otel-collector:latest";
 
     public CollectorService(String name, Network network) {
         this.name = name;

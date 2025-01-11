@@ -16,15 +16,16 @@ import nl.dflipse.fit.collector.TraceData;
 public class InstrumentedApp {
     public Network network;
     private List<InstrumentedService> services;
+    public String collectorHost = "collector";
+    public int collectorPort = 5000;
     public CollectorService collector;
-    private String collectorUrl;
+    public String collectorInspectUrl;
 
     public InstrumentedApp() {
         this.network = Network.newNetwork();
         this.services = new ArrayList<InstrumentedService>();
 
-        String collectorName = "collector";
-        this.collector = new CollectorService(collectorName, network);
+        this.collector = new CollectorService(collectorHost, network);
 
         this.services.add(collector);
     }
@@ -75,7 +76,7 @@ public class InstrumentedApp {
     }
 
     public TraceData getTrace(String traceId) {
-        String queryUrl = collectorUrl + "/v1/get/" + traceId;
+        String queryUrl = collectorInspectUrl + "/v1/get/" + traceId;
         try {
             Response res = Request.get(queryUrl).execute();
             String body = res.returnContent().asString();
@@ -98,7 +99,7 @@ public class InstrumentedApp {
         }
 
         int collectorPort = collector.getContainer().getMappedPort(5000);
-        collectorUrl = "http://localhost:" + collectorPort;
+        collectorInspectUrl = "http://localhost:" + collectorPort;
     }
 
     public void stop() {

@@ -79,6 +79,15 @@ def handleScopeSpan(span: dict, service_name: str):
     start_time = to_int(span.get('startTimeUnixNano', None))
     end_time = to_int(span.get('endTimeUnixNano', None))
 
+    # update existing span if it exists
+    existing_span_index = next((i for i, s in enumerate(
+        collected_spans) if s.span_id == span_id), None)
+
+    if existing_span_index is not None:
+        # update existing span and return
+        collected_spans[existing_span_index].end_time = end_time
+        return
+
     # define unique and deterministic span id
     span_base_id = f"{service_name}>{name}"
     trace_lookup = f"{trace_id}-{span_base_id}"
@@ -86,6 +95,7 @@ def handleScopeSpan(span: dict, service_name: str):
     span_counter[trace_lookup] = span_count + 1
     span_uid = f"{span_base_id}|{span_count}"
 
+    # create NEW span
     span = Span(
         span_id=span_id,
         span_uid=span_uid,
@@ -98,12 +108,7 @@ def handleScopeSpan(span: dict, service_name: str):
         trace_state=trace_state
     )
 
-    for i, s in enumerate(collected_spans):
-        if s.span_id == span_id:
-            collected_spans[i] = span
-            break
-    else:
-        collected_spans.append(span)
+    collected_spans.append(span)
 
 
 def handleSpan(span):

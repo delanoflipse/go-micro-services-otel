@@ -1,8 +1,6 @@
 package nl.dflipse.fit.strategy;
 
-import java.util.LinkedList;
 import java.util.List;
-import java.util.Queue;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.extension.AfterTestExecutionCallback;
@@ -13,8 +11,12 @@ import org.junit.jupiter.api.extension.ParameterResolver;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContext;
 import org.junit.jupiter.api.extension.TestTemplateInvocationContextProvider;
 
+import nl.dflipse.fit.collector.TraceData;
+import nl.dflipse.fit.instrument.InstrumentedApp;
+
 public class FiTestExtension implements TestTemplateInvocationContextProvider, AfterTestExecutionCallback {
-    private final Queue<Faultload> queue = new LinkedList<>();
+    private FIStrategy strategy;
+    private InstrumentedApp app;
 
     @Override
     public boolean supportsTestTemplate(ExtensionContext context) {
@@ -26,39 +28,42 @@ public class FiTestExtension implements TestTemplateInvocationContextProvider, A
     @Override
     public Stream<TestTemplateInvocationContext> provideTestTemplateInvocationContexts(ExtensionContext context) {
         // Retrieve the annotation and its parameters
-        // var annotation = context.getTestMethod()
-        // .orElseThrow()
-        // .getAnnotation(FiTest.class);
+        var annotation = context.getTestMethod()
+                .orElseThrow()
+                .getAnnotation(FiTest.class);
 
-        // Empty set of faults
-        queue.offer(new Faultload());
+        if (annotation == null) {
+            annotation = context.getRequiredTestClass().getAnnotation(FiTest.class);
+        }
+
+        try {
+            strategy = annotation.strategy().getDeclaredConstructor().newInstance();
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to instantiate strategy", e);
+        }
 
         return Stream
-                .<TestTemplateInvocationContext>generate(() -> new QueueBasedInvocationContext(queue.poll()))
-                .takeWhile(ctx -> ((QueueBasedInvocationContext) ctx).getFaultload() != null);
+                .generate(() -> createInvocationContext(strategy.next()))
+                .takeWhile(ctx -> ctx != null);
     }
 
-    // Inner class to represent each invocation context
-    private static class QueueBasedInvocationContext implements TestTemplateInvocationContext {
-        private final Faultload faultload;
-
-        QueueBasedInvocationContext(Faultload faultload) {
-            this.faultload = faultload;
+    private TestTemplateInvocationContext createInvocationContext(Faultload faultload) {
+        if (faultload == null) {
+            return null;
         }
 
-        public Faultload getFaultload() {
-            return faultload;
-        }
+        return new TestTemplateInvocationContext() {
+            @Override
+            public String getDisplayName(int invocationIndex) {
+                return "[" + invocationIndex + "] TraceId=" + faultload.getTraceId() + " "
+                        + faultload.getTraceState().toString();
+            }
 
-        @Override
-        public String getDisplayName(int invocationIndex) {
-            return "Invocation with parameter: " + faultload;
-        }
-
-        @Override
-        public List<Extension> getAdditionalExtensions() {
-            return List.of(new QueueParameterResolver(faultload));
-        }
+            @Override
+            public List<Extension> getAdditionalExtensions() {
+                return List.of(new QueueParameterResolver(faultload));
+            }
+        };
     }
 
     // Parameter resolver to inject the current parameter into the test
@@ -76,6 +81,11 @@ public class FiTestExtension implements TestTemplateInvocationContextProvider, A
 
         @Override
         public Object resolveParameter(ParameterContext parameterContext, ExtensionContext extensionContext) {
+            ExtensionContext.Namespace testNamespace = ExtensionContext.Namespace
+                    .create(extensionContext.getUniqueId());
+
+            extensionContext.getStore(testNamespace).put("faultload", faultload);
+
             return faultload;
         }
     }
@@ -87,9 +97,24 @@ public class FiTestExtension implements TestTemplateInvocationContextProvider, A
         // var annotation = testMethod.getAnnotation(FiTest.class);
         var displayName = context.getDisplayName();
 
-        // TODO: access faultload and test result
-        // TODO: add new faultload to the queue
+        var testFailed = context.getExecutionException().isPresent();
 
-        System.out.println("After execution of test: " + displayName);
+        ExtensionContext.Namespace testNamespace = ExtensionContext.Namespace.create(context.getUniqueId());
+        var faultload = context.getStore(testNamespace).get("faultload", Faultload.class);
+
+        System.out.println(
+                "Test " + displayName + " executed with faultload: " + faultload + " and result: "
+                        + (testFailed ? "FAIL" : "PASS"));
+
+        // Get the test instance and check if it implements InstrumentedTest
+        Object testInstance = context.getRequiredTestInstance();
+        if (testInstance instanceof InstrumentedTest) {
+            app = ((InstrumentedTest) testInstance).getApp();
+        } else {
+            throw new RuntimeException("Test does not implement InstrumentedTest");
+        }
+
+        TraceData trace = app.getTrace(faultload.getTraceId());
+        strategy.handleResult(faultload, trace, !testFailed);
     }
 }
