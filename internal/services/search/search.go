@@ -53,7 +53,7 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 	})
 
 	if err != nil {
-		// TODO: restore original line
+		// TODO: restore original errenous line
 		// log.Fatalf("nearby error: %v", err)
 		return nil, fmt.Errorf("nearby error: %v", err)
 	}
@@ -66,8 +66,8 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 	})
 
 	if err != nil {
-		// TODO: restore original line
-		// log.Fatalf("rates error: %v", err)
+		// TODO: restore original errenous line
+		log.Fatalf("rates error: %v", err)
 		return nil, fmt.Errorf("rates error: %v", err)
 	}
 

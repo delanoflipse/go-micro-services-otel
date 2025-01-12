@@ -3,7 +3,6 @@ package nl.dflipse.fit;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.MountableFile;
 
-import nl.dflipse.fit.collector.TraceData;
 import nl.dflipse.fit.instrument.InstrumentedApp;
 import nl.dflipse.fit.strategy.Faultload;
 import nl.dflipse.fit.strategy.FiTest;
@@ -100,10 +99,10 @@ public class AppTest implements InstrumentedTest {
                 .addHeader("tracestate", faultload.getTraceState().toString())
                 .execute();
 
-        String inspectUrl = app.collectorInspectUrl + "/v1/get/"
-                + faultload.getTraceId();
+        String inspectUrl = app.collectorInspectUrl + "/v1/get/" + faultload.getTraceId();
         int expectedResponse = faultload.size() > 0 ? 500 : 200;
-        assertEquals(expectedResponse, res.returnResponse().getCode());
+        int actualResponse = res.returnResponse().getCode();
+        assertEquals(expectedResponse, actualResponse);
 
         boolean allRunning = app.allRunning();
         assertTrue(allRunning);

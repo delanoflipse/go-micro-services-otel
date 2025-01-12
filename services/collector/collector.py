@@ -51,12 +51,12 @@ def get_attribute(attributes, key):
     return None
 
 
-def to_id(base_id):
+def to_id(base_id, byte_length=16):
     if base_id is None:
         return None
 
     as_int = int.from_bytes(base64.b64decode(base_id), 'big')
-    return hex(as_int)[2:]
+    return hex(as_int)[2:].zfill(byte_length * 2)
 
 
 def to_int(value):
@@ -69,9 +69,9 @@ span_counter = {}
 
 
 def handleScopeSpan(span: dict, service_name: str):
-    span_id = to_id(span.get('spanId', None))
-    trace_id = to_id(span.get('traceId', None))
-    parent_span_id = to_id(span.get('parentSpanId', None))
+    span_id = to_id(span.get('spanId', None), 8)
+    trace_id = to_id(span.get('traceId', None), 16)
+    parent_span_id = to_id(span.get('parentSpanId', None), 8)
 
     trace_state = span.get('traceState', None)
 
@@ -190,12 +190,15 @@ async def get_span_uid(trace_data):
         return "<root>", 200
 
     parent_span: Span = None
-    for i in range(10):
+    delay_per_attempt_s = 0.05
+    max_delay = 1.0
+    max_attempts = max_delay / delay_per_attempt_s
+    for _ in range(int(max_attempts)):
         parent_span = find_span_by_id(parent_span_id)
         if parent_span is not None:
             break
         else:
-            await asyncio.sleep(0.05)
+            await asyncio.sleep(delay_per_attempt_s)
     if parent_span is None:
         return "<none>", 404
 

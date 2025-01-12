@@ -1,5 +1,7 @@
 package nl.dflipse.fit.strategy;
 
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -22,14 +24,26 @@ public class Faultload {
         initializeTraceState();
     }
 
+    private String encodedFaultload() {
+        List<String> encodedFaults = new ArrayList<>();
+        for (String fault : faultload) {
+            String encodedFault = URLEncoder.encode(fault, StandardCharsets.UTF_8);
+            encodedFaults.add(encodedFault);
+        }
+        String combined = String.join(":", encodedFaults);
+        return combined;
+    }
+
+    public String readableString() {
+        return String.join(", ", faultload);
+    }
+
     private void initializeTraceState() {
         if (faultload.isEmpty()) {
             return;
         }
 
-        // TODO: allow for multiple faults
-        var fault = faultload.get(0);
-        traceState.set("faultload", fault);
+        traceState.set("faultload", encodedFaultload());
     }
 
     public String getTraceId() {

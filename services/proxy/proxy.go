@@ -10,6 +10,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"os"
+	"strings"
 
 	"dflipse.nl/fit-proxy/tracing"
 	"golang.org/x/net/http2"
@@ -34,6 +35,25 @@ func getSpanUID(traceparent tracing.TraceParentData) string {
 	}
 
 	return string(spanID)
+}
+
+func parseFautload(tracestate tracing.TraceStateData) []string {
+	faultload := tracestate.GetWithDefault("faultload", "")
+	if faultload == "" {
+		return nil
+	}
+
+	var decodedFaults []string
+	for _, fault := range strings.Split(faultload, ":") {
+		decodedFault, err := url.QueryUnescape(fault)
+		if err != nil {
+			log.Printf("Failed to decode fault: %v\n", err)
+			continue
+		}
+		decodedFaults = append(decodedFaults, decodedFault)
+	}
+
+	return decodedFaults
 }
 
 // Proxy handler that inspects and forwards HTTP requests and responses
@@ -79,12 +99,17 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 		spanUID := getSpanUID(*parent)
 		log.Printf("Span UID: %s\n", spanUID)
 
-		faultload := state.GetWithDefault("faultload", "")
-		log.Printf("Fault injection: %s\n", faultload)
+		faultloadUids := parseFautload(*state)
+		log.Printf("Fault injection: %s\n", faultloadUids)
 
-		if faultload != "" && faultload == spanUID {
-			http.Error(w, "Injected fault: HTTP error", http.StatusInternalServerError)
-			return
+		for _, faultUid := range faultloadUids {
+			log.Printf("Checking fault UID: %s=%s?\n", faultUid, spanUID)
+
+			if faultUid == spanUID {
+				log.Printf("Injecting fault: HTTP error\n")
+				http.Error(w, "Injected fault: HTTP error", http.StatusInternalServerError)
+				return
+			}
 		}
 
 		// Log request body (if it's a POST request)

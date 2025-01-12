@@ -12,3 +12,17 @@ data:
 run:
 	docker-compose build
 	docker-compose up --remove-orphans
+
+build-collector:
+	cd ./services/collector; docker build -t fit-otel-collector:latest .
+
+build-proxy:
+	cd ./services/proxy; docker build -t fit-proxy:latest .
+
+build-services:
+	docker build -t go-micro-service:latest .
+
+build-all: build-collector build-proxy build-services
+
+fit-test:
+	cd ./test/example-fit; mvn test
