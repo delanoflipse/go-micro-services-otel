@@ -67,6 +67,20 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 
 	if err != nil {
 		// TODO: restore original errenous line
+		// log.Fatalf("rates error: %v", err)
+		return nil, fmt.Errorf("rates error: %v", err)
+	}
+
+	// Dummy code to check second invocation:
+	rates2, err := s.rateClient.GetRates(ctx, &rate.Request{
+		HotelIds: nearby.HotelIds,
+		InDate:   req.InDate,
+		OutDate:  req.OutDate,
+	})
+	_ = rates2
+
+	if err != nil {
+		// TODO: restore original errenous line
 		log.Fatalf("rates error: %v", err)
 		return nil, fmt.Errorf("rates error: %v", err)
 	}

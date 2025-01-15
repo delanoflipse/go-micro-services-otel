@@ -22,6 +22,8 @@ class Span:
     end_time: int
     service_name: str
     trace_state: str
+    is_error: bool
+    error_message: str
 
 
 collected_spans: list[Span] = []
@@ -67,6 +69,18 @@ def to_int(value):
 
 span_counter = {}
 
+def getErrorStatus(span: dict) -> tuple[bool, str]:
+    status = span.get('status', None)
+    if status is None:
+        return None, None
+    
+    code = status.get('code', None)
+    if code is None:
+        return None, None
+    
+    errenous = code == "STATUS_CODE_ERROR"
+    
+    return errenous, status.get('message', None)
 
 def handleScopeSpan(span: dict, service_name: str):
     span_id = to_id(span.get('spanId', None), 8)
@@ -79,12 +93,16 @@ def handleScopeSpan(span: dict, service_name: str):
     start_time = to_int(span.get('startTimeUnixNano', None))
     end_time = to_int(span.get('endTimeUnixNano', None))
 
+    is_error, error_message = getErrorStatus(span)
+
     # update existing span if it exists
     existing_span_index = next((i for i, s in enumerate(
         collected_spans) if s.span_id == span_id), None)
 
     if existing_span_index is not None:
         # update existing span and return
+        collected_spans[existing_span_index].is_error = is_error
+        collected_spans[existing_span_index].error_message = error_message
         collected_spans[existing_span_index].end_time = end_time
         return
 
@@ -105,7 +123,9 @@ def handleScopeSpan(span: dict, service_name: str):
         start_time=start_time,
         end_time=end_time,
         service_name=service_name,
-        trace_state=trace_state
+        trace_state=trace_state,
+        is_error=is_error,
+        error_message=error_message,
     )
 
     collected_spans.append(span)

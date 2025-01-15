@@ -55,7 +55,7 @@ public class FiTestExtension implements TestTemplateInvocationContextProvider, A
         return new TestTemplateInvocationContext() {
             @Override
             public String getDisplayName(int invocationIndex) {
-                return "[" + invocationIndex + "] TraceId=" + faultload.getTraceId() + " "
+                return "[" + invocationIndex + "] TraceId=" + faultload.getTraceId() + " Faults="
                         + faultload.readableString();
             }
 
@@ -103,7 +103,7 @@ public class FiTestExtension implements TestTemplateInvocationContextProvider, A
         var faultload = context.getStore(testNamespace).get("faultload", Faultload.class);
 
         System.out.println(
-                "Test " + displayName + " executed with faultload: " + faultload.readableString() + " and result: "
+                "Test " + displayName + " with result: "
                         + (testFailed ? "FAIL" : "PASS"));
 
         // Get the test instance and check if it implements InstrumentedTest
