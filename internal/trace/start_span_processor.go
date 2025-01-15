@@ -39,7 +39,7 @@ func NewDirectSpanProcessor(exporter otelTrace.SpanExporter) otelTrace.SpanProce
 	return ssp
 }
 
-// OnStart does nothing.
+// OnStart immediately exports a ReadOnlySpan.
 func (ssp *directSpanProcessor) OnStart(c context.Context, s otelTrace.ReadWriteSpan) {
 	ssp.exporterMu.Lock()
 	defer ssp.exporterMu.Unlock()
