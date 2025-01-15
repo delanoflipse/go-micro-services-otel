@@ -1,7 +1,8 @@
 version: "3"
 services:
   frontend:
-    build: .
+    # build: .
+    image: go-micro-service:latest
     entrypoint: go-micro-services frontend
     links:
       - otel-collector
@@ -12,37 +13,51 @@ services:
       - profile
 
   frontend-proxy:
-    build: ./services/proxy
+    # build: ./services/proxy
+    image: fit-proxy:latest
     environment:
       - PROXY_HOST=0.0.0.0:8080
       - PROXY_TARGET=http://frontend:8080
+      - SERVICE_NAME=frontend
       - COLLECTOR_HOST=collector:5000
+    env_file:
+      - .env
     ports:
       - "5000:8080"
 
   search:
-    build: ./services/proxy
+    # build: ./services/proxy
+    image: fit-proxy:latest
     environment:
       - PROXY_HOST=0.0.0.0:8080
       - PROXY_TARGET=http://search-service:8080
       - COLLECTOR_HOST=collector:5000
+      - SERVICE_NAME=search
       - USE_HTTP2=true
+    env_file:
+      - .env
   search-service:
-    build: .
+    # build: .
+    image: go-micro-service:latest
     entrypoint: go-micro-services search
     links:
       - geo
       - rate
       - otel-collector
   profile:
-    build: ./services/proxy
+    # build: ./services/proxy
+    image: fit-proxy:latest
     environment:
       - PROXY_HOST=0.0.0.0:8080
       - PROXY_TARGET=http://profile-service:8080
       - COLLECTOR_HOST=collector:5000
+      - SERVICE_NAME=profile
       - USE_HTTP2=true
+    env_file:
+      - .env
   profile-service:
-    build: .
+    # build: .
+    image: go-micro-service:latest
     entrypoint: go-micro-services profile
     links:
       - geo
@@ -50,30 +65,40 @@ services:
       - otel-collector
 
   geo:
-    build: ./services/proxy
+    # build: ./services/proxy
+    image: fit-proxy:latest
     environment:
       - PROXY_HOST=0.0.0.0:8080
       - PROXY_TARGET=http://geo-service:8080
       - COLLECTOR_HOST=collector:5000
+      - SERVICE_NAME=geo
       - USE_HTTP2=true
+    env_file:
+      - .env
     ports:
       - "5011:8080"
 
   geo-service:
-    build: .
+    # build: .
+    image: go-micro-service:latest
     entrypoint: go-micro-services geo
     links:
       - otel-collector
 
   rate:
-    build: ./services/proxy
+    # build: ./services/proxy
+    image: fit-proxy:latest
     environment:
       - PROXY_HOST=0.0.0.0:8080
       - PROXY_TARGET=http://rate-service:8080
       - COLLECTOR_HOST=collector:5000
+      - SERVICE_NAME=rate
       - USE_HTTP2=true
+    env_file:
+      - .env
   rate-service:
-    build: .
+    # build: .
+    image: go-micro-service:latest
     entrypoint: go-micro-services rate
     links:
       - otel-collector
@@ -96,7 +121,8 @@ services:
       - collector
 
   collector:
-    build: ./services/collector
+    # build: ./services/collector
+    image: fit-otel-collector:latest
     volumes:
       - ./services/collector:/collector
     command: flask --app /collector/collector.py --debug run --host=0.0.0.0

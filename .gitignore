@@ -9,3 +9,4 @@ cmd/search/search
 vendor/**
 
 __pycache__/
+.env

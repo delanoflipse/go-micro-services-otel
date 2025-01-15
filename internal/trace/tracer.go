@@ -40,7 +40,8 @@ func New(serviceName, host string) (*sdktrace.TracerProvider, error) {
 
 	provider := sdktrace.NewTracerProvider(
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSpanProcessor(NewDirectSpanProcessor(exporter)),
+		sdktrace.WithSyncer(exporter),
+		// sdktrace.WithSpanProcessor(NewDirectSpanProcessor(exporter)),
 		sdktrace.WithResource(resource),
 	)
 

@@ -17,8 +17,9 @@ import (
 	"golang.org/x/net/http2/h2c"
 )
 
+var queryHost string = os.Getenv("COLLECTOR_HOST")
+
 func getSpanUID(traceparent tracing.TraceParentData) string {
-	queryHost := os.Getenv("COLLECTOR_HOST")
 	queryUrl := fmt.Sprintf("http://%s/v1/spanid/%s", queryHost, traceparent.String())
 	resp, err := http.Get(queryUrl)
 
@@ -79,7 +80,6 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 	// Wrap the proxy with a custom handler to inspect requests and responses
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Inspect request before forwarding
-		fmt.Printf("Received request: %s %s\n", r.Method, r.URL)
 
 		// Get "traceparent" and "tracestate" headers
 		traceparent := r.Header.Get("traceparent")
@@ -90,14 +90,17 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 			return
 		}
 
+		fmt.Printf("Received traced request: %s %s\n", r.Method, r.URL)
+
 		tracestate := r.Header.Get("tracestate")
 		state := tracing.ParseTraceState(tracestate)
 
 		fmt.Printf("Traceparent: %+v\n", parent)
 		fmt.Printf("Tracestate: %+v\n", state)
 
-		spanUID := getSpanUID(*parent)
-		log.Printf("Span UID: %s\n", spanUID)
+		localSpanId := tracing.SpanIdFromRequest(r)
+		log.Printf("local UID: %s\n", localSpanId)
+		spanUID := localSpanId.String()
 
 		faultloadUids := parseFautload(*state)
 		log.Printf("Fault injection: %s\n", faultloadUids)
@@ -111,11 +114,6 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 				return
 			}
 		}
-
-		// Log request body (if it's a POST request)
-		// if r.Method == "POST" || r.Method == "PUT" {
-		// 	fmt.Printf("Request body: %s\n", r.Body)
-		// }
 
 		// Set the "tracestate" header before forwarding the request
 		if state.HasKeys() {
