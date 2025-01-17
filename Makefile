@@ -10,11 +10,11 @@ data:
 	go-bindata -o data/bindata.go -pkg data data/*.json
 
 run:
-	docker-compose build
-	docker-compose up --remove-orphans
+	docker compose build
+	docker compose up --remove-orphans
 
 stop:
-	docker-compose down
+	docker compose down
 
 build-collector:
 	cd ./services/collector; docker build -t fit-otel-collector:latest .
