@@ -13,6 +13,10 @@ run:
 	docker-compose build
 	docker-compose up --remove-orphans
 
+run-base:
+	docker-compose -f docker-compose.base.yml build
+	docker-compose -f docker-compose.base.yml up --remove-orphans
+
 build-collector:
 	cd ./services/collector; docker build -t fit-otel-collector:latest .
 

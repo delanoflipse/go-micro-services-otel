@@ -3,6 +3,8 @@ package trace
 import (
 	"context"
 	"fmt"
+	"log"
+	"os"
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -38,11 +40,23 @@ func New(serviceName, host string) (*sdktrace.TracerProvider, error) {
 		panic(err)
 	}
 
-	provider := sdktrace.NewTracerProvider(
-		sdktrace.WithSampler(sdktrace.AlwaysSample()),
-		sdktrace.WithSpanProcessor(NewDirectSpanProcessor(exporter)),
-		sdktrace.WithResource(resource),
-	)
+	useExporter := os.Getenv("NO_INSTRUMENTATION") == ""
+
+	var provider *sdktrace.TracerProvider
+	if useExporter {
+		log.Printf("Using exporter")
+		provider = sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithSpanProcessor(NewDirectSpanProcessor(exporter)),
+			sdktrace.WithResource(resource),
+		)
+	} else {
+		provider = sdktrace.NewTracerProvider(
+			sdktrace.WithSampler(sdktrace.AlwaysSample()),
+			sdktrace.WithResource(resource),
+			sdktrace.WithBatcher(exporter),
+		)
+	}
 
 	otel.SetTracerProvider(provider)
 	otel.SetTextMapPropagator(propagation.NewCompositeTextMapPropagator(propagation.TraceContext{}, propagation.Baggage{}))

@@ -10,6 +10,10 @@ services:
     depends_on:
       - search
       - profile
+    ports:
+      - "5000:8080"
+    environment:
+      - NO_INSTRUMENTATION=true
 
   search:
     build: .
@@ -18,6 +22,8 @@ services:
       - geo
       - rate
       - otel-collector
+    environment:
+      - NO_INSTRUMENTATION=true
   profile:
     build: .
     entrypoint: go-micro-services profile
@@ -25,21 +31,27 @@ services:
       - geo
       - rate
       - otel-collector
+    environment:
+      - NO_INSTRUMENTATION=true
   geo:
     build: .
     entrypoint: go-micro-services geo
     links:
       - otel-collector
+    environment:
+      - NO_INSTRUMENTATION=true
   rate:
     build: .
     entrypoint: go-micro-services rate
     links:
       - otel-collector
+    environment:
+      - NO_INSTRUMENTATION=true
 
   otel-collector:
     image: otel/opentelemetry-collector-contrib
     volumes:
-      - ./otel-collector-config.yaml:/otel-collector-config.yaml
+      - ./otel-collector-config.base.yaml:/otel-collector-config.yaml
     command: --config=/otel-collector-config.yaml
     ports:
       - 1888:1888 # pprof extension
@@ -51,15 +63,6 @@ services:
       - 55679:55679 # zpages extension
     links:
       - jaeger
-      - collector
-
-  collector:
-    build: ./services/collector
-    volumes:
-      - ./services/collector:/collector
-    command: flask --app /collector/collector.py --debug run --host=0.0.0.0
-    ports:
-      - "5010:5000"
 
   jaeger:
     image: jaegertracing/all-in-one:latest
