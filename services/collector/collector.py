@@ -2,6 +2,8 @@ import asyncio
 import base64
 from dataclasses import dataclass, field
 
+import urllib
+
 # import trace
 from flask import Flask, request
 from opentelemetry.proto.collector.trace.v1.trace_service_pb2 import ExportTraceServiceRequest
@@ -13,7 +15,6 @@ app = Flask(__name__)
 
 @dataclass
 class Span:
-    span_uid: str
     span_id: str
     trace_id: str
     parent_span_id: str
@@ -24,10 +25,7 @@ class Span:
     trace_state: str
     is_error: bool
     error_message: str
-
-
-collected_spans: list[Span] = []
-collected_raw: list = []
+    span_uid: str = None
 
 
 @dataclass
@@ -36,13 +34,23 @@ class TraceNode:
     children: list['TraceNode'] = field(default_factory=list)
 
 
+# Local in-memory storage
+span_lookup: dict[str, Span] = {}
+span_uid_lookup: dict[str, str] = {}
+collected_spans: list[Span] = []
+collected_raw: list = []
+
+
 def find_span_by_id(span_id):
-    for span in collected_spans:
-        if span.span_id == span_id:
-            return span
-    return None
+    return span_lookup.get(span_id, None)
 
 
+def add_span(span: Span):
+    collected_spans.append(span)
+    span_lookup[span.span_id] = span
+
+
+# -- Helper functions for OTEL data --
 def get_attribute(attributes, key):
     for attr in attributes:
         if attr['key'] == key:
@@ -67,22 +75,24 @@ def to_int(value):
     return int(value)
 
 
-span_counter = {}
-
 def getErrorStatus(span: dict) -> tuple[bool, str]:
     status = span.get('status', None)
     if status is None:
         return None, None
-    
+
     code = status.get('code', None)
     if code is None:
         return None, None
-    
+
     errenous = code == "STATUS_CODE_ERROR"
-    
+
     return errenous, status.get('message', None)
 
+# handle a single OTEL span
+
+
 def handleScopeSpan(span: dict, service_name: str):
+    # Get fields
     span_id = to_id(span.get('spanId', None), 8)
     trace_id = to_id(span.get('traceId', None), 16)
     parent_span_id = to_id(span.get('parentSpanId', None), 8)
@@ -96,27 +106,19 @@ def handleScopeSpan(span: dict, service_name: str):
     is_error, error_message = getErrorStatus(span)
 
     # update existing span if it exists
-    existing_span_index = next((i for i, s in enumerate(
-        collected_spans) if s.span_id == span_id), None)
+    existing_span = find_span_by_id(span_id)
 
-    if existing_span_index is not None:
+    if existing_span is not None:
         # update existing span and return
-        collected_spans[existing_span_index].is_error = is_error
-        collected_spans[existing_span_index].error_message = error_message
-        collected_spans[existing_span_index].end_time = end_time
+        existing_span.is_error = is_error
+        existing_span.error_message = error_message
+        existing_span.end_time = end_time
+        existing_span.span_uid = span_uid_lookup.get(span_id, None)
         return
-
-    # define unique and deterministic span id
-    span_base_id = f"{service_name}>{name}"
-    trace_lookup = f"{trace_id}-{span_base_id}"
-    span_count = span_counter.get(trace_lookup, 0)
-    span_counter[trace_lookup] = span_count + 1
-    span_uid = f"{span_base_id}|{span_count}"
 
     # create NEW span
     span = Span(
         span_id=span_id,
-        span_uid=span_uid,
         trace_id=trace_id,
         parent_span_id=parent_span_id,
         name=name,
@@ -126,9 +128,10 @@ def handleScopeSpan(span: dict, service_name: str):
         trace_state=trace_state,
         is_error=is_error,
         error_message=error_message,
+        span_uid=span_uid_lookup.get(span_id, None)
     )
 
-    collected_spans.append(span)
+    add_span(span)
 
 
 def handleSpan(span):
@@ -203,27 +206,19 @@ def get_spans_by_trace_id(trace_id):
     }, 200
 
 
-@app.route('/v1/spanid/<trace_data>', methods=['GET'])
-async def get_span_uid(trace_data):
-    v, trace_id, parent_span_id, flags = trace_data.split('-')
-    if parent_span_id == "0000000000000001":
-        return "<root>", 200
+@app.route('/v1/link', methods=['POST'])
+async def report_span_id():
+    data = request.get_json()
+    span_id = data.get('span_id')
+    span_uid = data.get('span_uid')
 
-    parent_span: Span = None
-    delay_per_attempt_s = 0.05
-    max_delay = 1.0
-    max_attempts = max_delay / delay_per_attempt_s
-    for _ in range(int(max_attempts)):
-        parent_span = find_span_by_id(parent_span_id)
-        if parent_span is not None:
-            break
-        else:
-            await asyncio.sleep(delay_per_attempt_s)
-    if parent_span is None:
-        return "<none>", 404
+    decoded_span_uid = urllib.parse.unquote(span_uid)
+    span_uid_lookup[span_id] = decoded_span_uid
 
-    return parent_span.span_uid, 200
+    if span_id in span_lookup:
+        span_lookup[span_id].span_uid = decoded_span_uid
 
+    return "OK", 200
 
 if __name__ == '__main__':
     loop = asyncio.get_event_loop()

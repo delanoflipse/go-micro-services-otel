@@ -3,7 +3,6 @@ package main
 import (
 	"crypto/tls"
 	"fmt"
-	"io"
 	"log"
 	"net"
 	"net/http"
@@ -19,26 +18,21 @@ import (
 
 var queryHost string = os.Getenv("COLLECTOR_HOST")
 
-func getSpanUID(traceparent tracing.TraceParentData) string {
-	queryUrl := fmt.Sprintf("http://%s/v1/spanid/%s", queryHost, traceparent.String())
-	resp, err := http.Get(queryUrl)
+func reportSpanUID(traceparent tracing.TraceParentData, spanUID string) {
+	queryUrl := fmt.Sprintf("http://%s/v1/link", queryHost)
+	encodedSpanUID := url.QueryEscape(spanUID)
+	jsonBody := fmt.Sprintf(`{"span_id": "%s", "span_uid": "%s"}`, traceparent.ParentID, encodedSpanUID)
+	resp, err := http.Post(queryUrl, "application/json", strings.NewReader(jsonBody))
 
 	if err != nil {
-		log.Printf("Failed to get span ID: %v\n", err)
-		return ""
+		log.Printf("Failed to report span ID: %v\n", err)
+		return
 	}
+
 	defer resp.Body.Close()
-
-	spanID, err := io.ReadAll(resp.Body)
-	if err != nil {
-		log.Printf("Failed to read span ID response: %v\n", err)
-		return ""
-	}
-
-	return string(spanID)
 }
 
-func parseFautload(tracestate tracing.TraceStateData) []string {
+func parseFaultload(tracestate tracing.TraceStateData) []string {
 	faultload := tracestate.GetWithDefault("faultload", "")
 	if faultload == "" {
 		return nil
@@ -98,11 +92,22 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 		fmt.Printf("Traceparent: %+v\n", parent)
 		fmt.Printf("Tracestate: %+v\n", state)
 
+		// only forward the request if the "fit" flag is set
+		shouldInspect := state.GetWithDefault("fit", "0") == "1"
+		if !shouldInspect {
+			proxy.ServeHTTP(w, r)
+			return
+		}
+
+		// determine the span ID for the current request
+		// and report the link to the parent span
 		localSpanId := tracing.SpanIdFromRequest(r)
 		log.Printf("local UID: %s\n", localSpanId)
 		spanUID := localSpanId.String()
 
-		faultloadUids := parseFautload(*state)
+		reportSpanUID(*parent, spanUID)
+
+		faultloadUids := parseFaultload(*state)
 		log.Printf("Fault injection: %s\n", faultloadUids)
 
 		for _, faultUid := range faultloadUids {
@@ -113,11 +118,6 @@ func proxyHandler(targetHost string, useHttp2 bool) http.Handler {
 				http.Error(w, "Injected fault: HTTP error", http.StatusInternalServerError)
 				return
 			}
-		}
-
-		// Set the "tracestate" header before forwarding the request
-		if state.HasKeys() {
-			r.Header.Set("tracestate", state.String())
 		}
 
 		// Forward the request to the target server

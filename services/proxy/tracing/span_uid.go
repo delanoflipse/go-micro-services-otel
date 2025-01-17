@@ -10,6 +10,7 @@ import (
 )
 
 var traceInvocationCounter map[string]int = make(map[string]int)
+
 var stackName string = os.Getenv("STACK_NAME")
 var serviceName string = os.Getenv("SERVICE_NAME")
 var pathPrefix string = getEnvOrDefault("GRPC_PATH_PREFIX", "/")
@@ -50,6 +51,7 @@ func SpanIdFromRequest(r *http.Request) SpanIdentifier {
 func getInvocationIndex(clientName, signature, traceId string) int {
 	key := fmt.Sprintf("%s-%s-%s", clientName, signature, traceId)
 	currentIndex, exists := traceInvocationCounter[key]
+
 	if !exists {
 		currentIndex = 0
 	} else {

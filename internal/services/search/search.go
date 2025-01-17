@@ -81,7 +81,7 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 
 	if err != nil {
 		// TODO: restore original errenous line
-		log.Fatalf("rates error: %v", err)
+		// log.Fatalf("rates error: %v", err)
 		return nil, fmt.Errorf("rates error: %v", err)
 	}
 
