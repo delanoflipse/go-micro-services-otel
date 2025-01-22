@@ -36,6 +36,12 @@ services:
     links:
       - otel-collector
 
+
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686"
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib
     volumes:
@@ -51,9 +57,3 @@ services:
       - 55679:55679 # zpages extension
     links:
       - jaeger
-      - collector
-
-  jaeger:
-    image: jaegertracing/all-in-one:latest
-    ports:
-      - "16686:16686"
