@@ -3,6 +3,8 @@ services:
   frontend:
     build: .
     entrypoint: go-micro-services frontend
+    ports:
+      - "5000:8080"
     links:
       - otel-collector
       - search
