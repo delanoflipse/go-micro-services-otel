@@ -3,7 +3,6 @@ package nl.dflipse.fit.strategy;
 import org.junit.jupiter.api.TestTemplate;
 import org.junit.jupiter.api.extension.ExtendWith;
 
-import nl.dflipse.fit.instrument.InstrumentedApp;
 import nl.dflipse.fit.strategy.strategies.DepthFirstStrategy;
 
 import java.lang.annotation.ElementType;
