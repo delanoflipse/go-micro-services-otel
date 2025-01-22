@@ -1,19 +1,19 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"log"
 	"os"
 
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	frontendsrv "github.com/harlow/go-micro-services/internal/services/frontend"
 	geosrv "github.com/harlow/go-micro-services/internal/services/geo"
 	profilesrv "github.com/harlow/go-micro-services/internal/services/profile"
 	ratesrv "github.com/harlow/go-micro-services/internal/services/rate"
 	searchsrv "github.com/harlow/go-micro-services/internal/services/search"
 	"github.com/harlow/go-micro-services/internal/trace"
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -24,7 +24,7 @@ type server interface {
 func main() {
 	var (
 		port        = flag.Int("port", 8080, "The service port")
-		jaegeraddr  = flag.String("jaeger", "jaeger:6831", "Jaeger address")
+		oteladdr    = flag.String("otel", "otel-collector:4318", "OTel collector address")
 		profileaddr = flag.String("profileaddr", "profile:8080", "Profile service addr")
 		geoaddr     = flag.String("geoaddr", "geo:8080", "Geo server addr")
 		rateaddr    = flag.String("rateaddr", "rate:8080", "Rate server addr")
@@ -32,32 +32,42 @@ func main() {
 	)
 	flag.Parse()
 
-	t, err := trace.New("search", *jaegeraddr)
+	var cmd = os.Args[1]
+
+	tp, err := trace.New(cmd, *oteladdr)
 	if err != nil {
 		log.Fatalf("trace new error: %v", err)
 	}
 
+	// Handle shutdown properly so nothing leaks.
+	defer func() {
+		if err := tp.Shutdown(context.Background()); err != nil {
+			log.Printf("Error shutting down tracer provider: %v", err)
+		}
+	}()
+
 	var srv server
-	var cmd = os.Args[1]
+
+	log.Printf("cmd: %s", cmd)
 
 	switch cmd {
 	case "geo":
-		srv = geosrv.New(t)
+		srv = geosrv.New(tp)
 	case "rate":
-		srv = ratesrv.New(t)
+		srv = ratesrv.New(tp)
 	case "profile":
-		srv = profilesrv.New(t)
+		srv = profilesrv.New(tp)
 	case "search":
 		srv = searchsrv.New(
-			t,
-			dial(*geoaddr, t),
-			dial(*rateaddr, t),
+			tp,
+			dial(*geoaddr),
+			dial(*rateaddr),
 		)
 	case "frontend":
 		srv = frontendsrv.New(
-			t,
-			dial(*searchaddr, t),
-			dial(*profileaddr, t),
+			tp,
+			dial(*searchaddr),
+			dial(*profileaddr),
 		)
 	default:
 		log.Fatalf("unknown cmd: %s", cmd)
@@ -68,13 +78,12 @@ func main() {
 	}
 }
 
-func dial(addr string, t opentracing.Tracer) *grpc.ClientConn {
-	opts := []grpc.DialOption{
+func dial(addr string) *grpc.ClientConn {
+	conn, err := grpc.NewClient(addr,
+		grpc.WithStatsHandler(otelgrpc.NewClientHandler()),
 		grpc.WithInsecure(),
-		grpc.WithUnaryInterceptor(otgrpc.OpenTracingClientInterceptor(t)),
-	}
+	)
 
-	conn, err := grpc.Dial(addr, opts...)
 	if err != nil {
 		panic(fmt.Sprintf("ERROR: dial error: %v", err))
 	}

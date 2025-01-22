@@ -5,21 +5,21 @@ import (
 	"log"
 	"net"
 
-	"github.com/grpc-ecosystem/grpc-opentracing/go/otgrpc"
 	geo "github.com/harlow/go-micro-services/internal/services/geo/proto"
 	rate "github.com/harlow/go-micro-services/internal/services/rate/proto"
 	search "github.com/harlow/go-micro-services/internal/services/search/proto"
-	opentracing "github.com/opentracing/opentracing-go"
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	context "golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 // New returns a new server
-func New(t opentracing.Tracer, geoconn, rateconn *grpc.ClientConn) *Search {
+func New(tp *sdktrace.TracerProvider, geoconn, rateconn *grpc.ClientConn) *Search {
 	return &Search{
 		geoClient:  geo.NewGeoClient(geoconn),
 		rateClient: rate.NewRateClient(rateconn),
-		tracer:     t,
+		tracer:     tp,
 	}
 }
 
@@ -27,15 +27,13 @@ func New(t opentracing.Tracer, geoconn, rateconn *grpc.ClientConn) *Search {
 type Search struct {
 	geoClient  geo.GeoClient
 	rateClient rate.RateClient
-	tracer     opentracing.Tracer
+	tracer     *sdktrace.TracerProvider
 }
 
 // Run starts the server
 func (s *Search) Run(port int) error {
 	srv := grpc.NewServer(
-		grpc.UnaryInterceptor(
-			otgrpc.OpenTracingServerInterceptor(s.tracer),
-		),
+		grpc.StatsHandler(otelgrpc.NewServerHandler()),
 	)
 	search.RegisterSearchServer(srv, s)
 
@@ -53,8 +51,11 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 		Lat: req.Lat,
 		Lon: req.Lon,
 	})
+
 	if err != nil {
-		log.Fatalf("nearby error: %v", err)
+		// You can comment out the following line to introduce a resilience bug
+		// log.Fatalf("nearby error: %v", err)
+		return nil, fmt.Errorf("nearby error: %v", err)
 	}
 
 	// find rates for hotels
@@ -63,8 +64,11 @@ func (s *Search) Nearby(ctx context.Context, req *search.NearbyRequest) (*search
 		InDate:   req.InDate,
 		OutDate:  req.OutDate,
 	})
+
 	if err != nil {
-		log.Fatalf("rates error: %v", err)
+		// You can comment out the following line to introduce a resilience bug
+		// log.Fatalf("rates error: %v", err)
+		return nil, fmt.Errorf("rates error: %v", err)
 	}
 
 	// build the response

@@ -10,5 +10,12 @@ data:
 	go-bindata -o data/bindata.go -pkg data data/*.json
 
 run:
-	docker-compose build
-	docker-compose up --remove-orphans
+	docker compose build
+	docker compose up --remove-orphans
+
+stop:
+	docker compose down
+
+build-services:
+	docker build -t go-micro-service:latest .
+
