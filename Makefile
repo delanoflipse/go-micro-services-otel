@@ -1,4 +1,4 @@
-.PHONY: proto data run
+.PHONY: proto data run stop build
 
 proto:
 	for f in internal/services/*/proto/*.proto; do \
@@ -16,6 +16,6 @@ run:
 stop:
 	docker compose down
 
-build-services:
+build:
 	docker build -t go-micro-service:latest .
 
