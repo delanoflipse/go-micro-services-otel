@@ -39,6 +39,8 @@ public class Faultload {
     }
 
     private void initializeTraceState() {
+        traceState.set("fit", "1");
+
         if (faultload.isEmpty()) {
             return;
         }
